@@ -1,0 +1,27 @@
+version: '3.9'
+
+services:
+  tempo:
+    image: grafana/tempo:latest
+    command: ['-search.enabled=true', '-config.file=/etc/tempo.yaml']
+    volumes:
+      - ./.docker/tempo.yaml:/etc/tempo.yaml
+      - ./.docker/overrides.yaml:/etc/overrides.yaml
+      - ./.docker/data/tempo/:/tmp/tempo
+    ports:
+      - '3200:3200' # tempo
+      - '14268:14268' # jaeger ingest
+      - '4317:4317' #otlp GRPC
+      - '4318:4318' #otlp http
+
+  grafana:
+    image: grafana/grafana:latest # track main as search is under active development
+    volumes:
+      - ./.docker/grafana.ini:/etc/grafana/grafana.ini
+      - ./.docker/grafana-datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml
+    environment:
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      - GF_AUTH_DISABLE_LOGIN_FORM=true
+    ports:
+      - '3001:3000'
