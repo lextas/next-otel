@@ -22,6 +22,10 @@ distributor:
     otlp:
       protocols:
         http:
+          cors:
+            allowed_origins:
+              - http://localhost:3001
+              - http://localhost:3000
         grpc:
     opencensus:
 
