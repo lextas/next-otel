@@ -1,27 +1,47 @@
-version: '3.9'
-
+version: "3"
 services:
+
   tempo:
     image: grafana/tempo:latest
-    command: ['-search.enabled=true', '-config.file=/etc/tempo.yaml']
+    command: [ "-config.file=/etc/tempo.yaml" ]
     volumes:
       - ./.docker/tempo.yaml:/etc/tempo.yaml
-      - ./.docker/overrides.yaml:/etc/overrides.yaml
-      - ./.docker/data/tempo/:/tmp/tempo
+      - ./.docker/data/tempo:/tmp/tempo
     ports:
-      - '3200:3200' # tempo
-      - '14268:14268' # jaeger ingest
-      - '4317:4317' #otlp GRPC
-      - '4318:4318' #otlp http
+      - "14268:14268"  # jaeger ingest
+      - "3200:3200"   # tempo
+      - "9095:9095" # tempo grpc
+      - "4317:4317"  # otlp grpc
+      - "4318:4318"  # otlp http
+      - "9411:9411"   # zipkin
+
+  k6-tracing:
+    image: ghcr.io/grafana/xk6-client-tracing:latest
+    environment:
+      - ENDPOINT=tempo:4317
+    restart: always
+    depends_on:
+      - tempo
+
+  prometheus:
+    image: prom/prometheus:latest
+    command:
+      - --config.file=/etc/prometheus.yaml
+      - --web.enable-remote-write-receiver
+      - --enable-feature=exemplar-storage
+    volumes:
+      - ./.docker/prometheus.yaml:/etc/prometheus.yaml
+    ports:
+      - "9090:9090"
 
   grafana:
-    image: grafana/grafana:latest # track main as search is under active development
+    image: grafana/grafana:10.2.2
     volumes:
-      - ./.docker/grafana.ini:/etc/grafana/grafana.ini
       - ./.docker/grafana-datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml
     environment:
       - GF_AUTH_ANONYMOUS_ENABLED=true
       - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
       - GF_AUTH_DISABLE_LOGIN_FORM=true
+      - GF_FEATURE_TOGGLES_ENABLE=traceqlEditor traceQLStreaming metricsSummary
     ports:
-      - '3001:3000'
+      - "3000:3000"
