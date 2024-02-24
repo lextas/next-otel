@@ -21,59 +21,51 @@ import { Span } from '@opentelemetry/api';
 
 const sdk = new NodeSDK({
   resource: new Resource({
-    [SemanticResourceAttributes.SERVICE_NAME]: process.env.OTEL_SERVICE_NAME,
-    [SemanticResourceAttributes.SERVICE_VERSION]: process.env.BUILD,
+    [SemanticResourceAttributes.SERVICE_NAME]: process.env.NEXT_PUBLIC_OTEL_SERVICE_NAME,
+    [SemanticResourceAttributes.SERVICE_VERSION]: process.env.NEXT_PUBLIC_BUILD,
   }),
   traceExporter: new OTLPTraceExporter({
-    url: process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
+    url: process.env.NEXT_PUBLIC_OTEL_EXPORTER_OTLP_ENDPOINT,
   }),
   instrumentations: [
     getNodeAutoInstrumentations({
       // disable `instrumentation-fs` because it's bloating the traces
-      '@opentelemetry/instrumentation-fs': {
+      "@opentelemetry/instrumentation-fs": {
         enabled: false,
       },
-      '@opentelemetry/instrumentation-http': {
+      "@opentelemetry/instrumentation-http": {
         // ignore certain requests
         ignoreIncomingRequestHook: (request: IncomingMessage) => {
+          const ignorePatterns = [/^\/_next\/static.*/, /\/?_rsc=*/, /favicon/];
 
-          // console.log('ignoreIncomingRequestHook', request.url);
-
-          const ignorePatterns = [
-            /^\/_next\/static.*/,
-            /\/?_rsc=*/,
-            /favicon/,
-          ];
-
-          if(request.url && ignorePatterns.some(m => m.test(request.url!))){
+          if (request.url && ignorePatterns.some((m) => m.test(request.url!))) {
             return true;
           }
 
           return false;
         },
 
-        // rewrite span names from HTTP GET to the path
+        // rewrite span names from HTTP [METHOD] to the path
         requestHook: (span: Span, request: ClientRequest | IncomingMessage) => {
-          // span.setAttributes({
-          //   name: `${request.method} ${(request as IncomingMessage).url}`,
-          // });
+          span.setAttributes({
+            name: `${request.method} ${(request as IncomingMessage).url}`,
+          });
         },
 
         // re-assign the root span's attributes
         startIncomingSpanHook: (request: IncomingMessage) => {
-          
           // return {
           //   name: `${request.method} ${request.url}`,
           //   'request.path': request.url,
           // };
-          return {}
+          return {};
         },
       },
     }),
   ],
   metricReader: new PeriodicExportingMetricReader({
     exporter: new OTLPMetricExporter({
-      url: process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
+      url: process.env.NEXT_PUBLIC_OTEL_EXPORTER_OTLP_ENDPOINT,
     }),
   }),
   resourceDetectors: [

@@ -27,10 +27,12 @@ export async function initTelemetry() {
 
   const { ZoneContextManager } = await import('@opentelemetry/context-zone');
 
-  let resource = new Resource({
-    [SemanticResourceAttributes.SERVICE_NAME]: process.env.OTEL_SERVICE_NAME,
-    [SemanticResourceAttributes.SERVICE_VERSION]: process.env.BUILD,
-  });
+  let resource = Resource.default().merge(
+    new Resource({
+      [SemanticResourceAttributes.SERVICE_NAME]: process.env.NEXT_PUBLIC_OTEL_SERVICE_NAME,
+      [SemanticResourceAttributes.SERVICE_VERSION]: process.env.NEXT_PUBLIC_BUILD,
+    })
+  );
 
   const contextManager = new ZoneContextManager();
 
@@ -44,14 +46,21 @@ export async function initTelemetry() {
     resource,
   });
 
-  provider.addSpanProcessor(new SimpleSpanProcessor(new ConsoleSpanExporter()));
-
+  if (process.env.NEXT_PUBLIC_OTEL_CONSOLE_LOG.toLocaleLowerCase() === 'true') {
+    console.log(
+      "instrumentation logging to console. to disable update your .env file: NEXT_PUBLIC_OTEL_CONSOLE_LOG=false"
+    );
+    provider.addSpanProcessor(
+      new SimpleSpanProcessor(new ConsoleSpanExporter())
+    );
+  }
+  
   provider.addSpanProcessor(
     new BatchSpanProcessor(
       new OTLPTraceExporter({
-        url: process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
-      }),
-    ),
+        url: process.env.NEXT_PUBLIC_OTEL_EXPORTER_OTLP_ENDPOINT,
+      })
+    )
   );
 
   provider.register({
@@ -68,11 +77,14 @@ export async function initTelemetry() {
     tracerProvider: provider,
     instrumentations: [
       getWebAutoInstrumentations({
-        '@opentelemetry/instrumentation-fetch': {
+        "@opentelemetry/instrumentation-document-load": {},
+        "@opentelemetry/instrumentation-user-interaction": {},
+        "@opentelemetry/instrumentation-xml-http-request": {},
+        "@opentelemetry/instrumentation-fetch": {
           propagateTraceHeaderCorsUrls: /.*/,
           clearTimingResources: true,
           applyCustomAttributesOnSpan(span: Span) {
-            span.setAttribute('app.synthetic_request', 'false');
+            // span.setAttribute("app.synthetic_request", "false");
           },
         },
       }),

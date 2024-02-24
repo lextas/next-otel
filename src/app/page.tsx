@@ -3,14 +3,16 @@
 import { useState } from 'react';
 import { trace } from '@opentelemetry/api';
 
+const tracer = trace.getTracer('page');
+
 async function getRandom(): Promise<{ random: number }> {
 
-  return await trace
-    .getTracer('test-button')
-    .startActiveSpan('getRandomNumber', async (span) => {
+  return await tracer.startActiveSpan('getRandomNumber', async (span) => {
       try {
         const response = await fetch('/api/random');
-        return response.json();
+        const data = await response.json();
+        span.setAttribute('response', JSON.stringify(data))
+        return data;
       } finally {
         span.end();
       }
@@ -22,9 +24,14 @@ export default function Home() {
   const [number, setNumber] = useState(0);
 
   const onClick = async () => {
-    const response = await getRandom();
+    tracer.startActiveSpan('button-clicked', async (span) => {
+      const response = await getRandom();
     
-    setNumber(response.random);
+      setNumber(response.random);
+
+      span.end();
+    });
+    
   };
 
   return (
