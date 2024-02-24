@@ -21,7 +21,7 @@ import { detectResourcesSync } from '@opentelemetry/resources/build/src/detect-r
 import { Span } from '@opentelemetry/api';
 
 export async function initTelemetry() {
-  if (typeof window !== 'undefined') {
+  if (typeof window === 'undefined') {
     return null;
   }
 
