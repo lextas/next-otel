@@ -24,14 +24,9 @@ export default function Home() {
   const [number, setNumber] = useState(0);
 
   const onClick = async () => {
-    tracer.startActiveSpan('button-clicked', async (span) => {
-      const response = await getRandom();
-    
-      setNumber(response.random);
+    const response = await getRandom();
 
-      span.end();
-    });
-    
+    setNumber(response.random);    
   };
 
   return (

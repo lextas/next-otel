@@ -77,14 +77,52 @@ export async function initTelemetry() {
     tracerProvider: provider,
     instrumentations: [
       getWebAutoInstrumentations({
-        "@opentelemetry/instrumentation-document-load": {},
-        "@opentelemetry/instrumentation-user-interaction": {},
+        "@opentelemetry/instrumentation-document-load": {
+          enabled: true,
+          applyCustomAttributesOnSpan: {
+            documentLoad: (span) => {},
+            documentFetch: (span) => {},
+            resourceFetch: (span, resource) => {},
+          },
+        },
+        "@opentelemetry/instrumentation-user-interaction": {
+          eventNames: ['click', 'submit', /* add events we want to trace */],
+          enabled: true,
+          shouldPreventSpanCreation: (eventType, element, span) => {
+            
+            console.log('user-interaction', eventType, element, span);
+
+            // TODO: we can add custom data attributes like `data-ignore-trace` and check for it here and return `true` to prevent tracing
+
+            const title = element.title || element.innerText;
+
+            span.updateName(`${eventType} '${title}'`);
+
+            span.setAttribute("target.id", element.id);
+            span.setAttribute("target.className", element.className);
+            span.setAttribute("target.html", element.outerHTML);
+            span.setAttribute("target.title", title);
+
+            return false;
+          },
+        },
         "@opentelemetry/instrumentation-xml-http-request": {},
         "@opentelemetry/instrumentation-fetch": {
+          enabled: true,
           propagateTraceHeaderCorsUrls: /.*/,
           clearTimingResources: true,
-          applyCustomAttributesOnSpan(span: Span) {
-            // span.setAttribute("app.synthetic_request", "false");
+          applyCustomAttributesOnSpan(span: Span, request, result) {
+
+            console.log("fetch", span, request, result);
+
+            span.setAttribute("app.synthetic_request", "false");
+
+            // const attributes = (span as any).attributes;
+            // if (attributes.component === "fetch") {
+            //   span.updateName(
+            //     `${attributes["http.method"]} ${attributes["http.url"]}`
+            //   );
+            // }
           },
         },
       }),
