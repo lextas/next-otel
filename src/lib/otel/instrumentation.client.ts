@@ -2,35 +2,41 @@ import {
   CompositePropagator,
   W3CBaggagePropagator,
   W3CTraceContextPropagator,
-} from '@opentelemetry/core';
-import { Resource } from '@opentelemetry/resources';
-import { SemanticResourceAttributes } from '@opentelemetry/semantic-conventions';
-import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
+} from "@opentelemetry/core";
+import { Resource } from "@opentelemetry/resources";
+import { SemanticResourceAttributes } from "@opentelemetry/semantic-conventions";
+import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
 import {
   WebTracerProvider,
   ConsoleSpanExporter,
-} from '@opentelemetry/sdk-trace-web';
+} from "@opentelemetry/sdk-trace-web";
 import {
   BatchSpanProcessor,
   SimpleSpanProcessor,
-} from '@opentelemetry/sdk-trace-base';
-import { registerInstrumentations } from '@opentelemetry/instrumentation';
-import { getWebAutoInstrumentations } from '@opentelemetry/auto-instrumentations-web';
-import { browserDetector } from '@opentelemetry/resources';
-import { detectResourcesSync } from '@opentelemetry/resources/build/src/detect-resources';
-import { Span } from '@opentelemetry/api';
+} from "@opentelemetry/sdk-trace-base";
+import { registerInstrumentations } from "@opentelemetry/instrumentation";
+import { getWebAutoInstrumentations } from "@opentelemetry/auto-instrumentations-web";
+import { browserDetector } from "@opentelemetry/resources";
+import { detectResourcesSync } from "@opentelemetry/resources/build/src/detect-resources";
+import { Span } from "@opentelemetry/api";
+import { OtelOptions } from "@/types/otel";
 
-export async function initTelemetry() {
-  if (typeof window === 'undefined') {
+export async function registerOtel({
+  endpoint,
+  serviceName,
+  version,
+  consoleLogging = false,
+}: OtelOptions) {
+  if (typeof window === "undefined") {
     return null;
   }
 
-  const { ZoneContextManager } = await import('@opentelemetry/context-zone');
+  const { ZoneContextManager } = await import("@opentelemetry/context-zone");
 
   let resource = Resource.default().merge(
     new Resource({
-      [SemanticResourceAttributes.SERVICE_NAME]: process.env.NEXT_PUBLIC_OTEL_SERVICE_NAME,
-      [SemanticResourceAttributes.SERVICE_VERSION]: process.env.NEXT_PUBLIC_BUILD,
+      [SemanticResourceAttributes.SERVICE_NAME]: serviceName,
+      [SemanticResourceAttributes.SERVICE_VERSION]: version,
     })
   );
 
@@ -46,19 +52,16 @@ export async function initTelemetry() {
     resource,
   });
 
-  if (process.env.NEXT_PUBLIC_OTEL_CONSOLE_LOG.toLocaleLowerCase() === 'true') {
-    console.log(
-      "instrumentation logging to console. to disable update your .env file: NEXT_PUBLIC_OTEL_CONSOLE_LOG=false"
-    );
+  if (consoleLogging) {
     provider.addSpanProcessor(
       new SimpleSpanProcessor(new ConsoleSpanExporter())
     );
   }
-  
+
   provider.addSpanProcessor(
     new BatchSpanProcessor(
       new OTLPTraceExporter({
-        url: process.env.NEXT_PUBLIC_OTEL_EXPORTER_OTLP_ENDPOINT,
+        url: endpoint,
       })
     )
   );
@@ -86,11 +89,9 @@ export async function initTelemetry() {
           },
         },
         "@opentelemetry/instrumentation-user-interaction": {
-          eventNames: ['click', 'submit', /* add events we want to trace */],
+          eventNames: ["click", "submit" /* add events we want to trace */],
           enabled: true,
           shouldPreventSpanCreation: (eventType, element, span) => {
-            
-            console.log('user-interaction', eventType, element, span);
 
             // TODO: we can add custom data attributes like `data-ignore-trace` and check for it here and return `true` to prevent tracing
 
@@ -113,8 +114,6 @@ export async function initTelemetry() {
           clearTimingResources: true,
           applyCustomAttributesOnSpan(span: Span, request, result) {
 
-            console.log("fetch", span, request, result);
-
             span.setAttribute("app.synthetic_request", "false");
 
             // const attributes = (span as any).attributes;
@@ -128,6 +127,4 @@ export async function initTelemetry() {
       }),
     ],
   });
-
-  console.log('instrumentation `client` enabled');
 }
