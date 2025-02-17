@@ -1,26 +1,28 @@
+import { OtelOptions } from '@/types/otel';
+import { Span } from '@opentelemetry/api';
+import { getWebAutoInstrumentations } from '@opentelemetry/auto-instrumentations-web';
 import {
   CompositePropagator,
   W3CBaggagePropagator,
   W3CTraceContextPropagator,
 } from '@opentelemetry/core';
-import { Resource } from '@opentelemetry/resources';
-import { SemanticResourceAttributes } from '@opentelemetry/semantic-conventions';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
-import {
-  WebTracerProvider,
-  ConsoleSpanExporter,
-} from '@opentelemetry/sdk-trace-web';
+import { registerInstrumentations } from '@opentelemetry/instrumentation';
+import { browserDetector, Resource } from '@opentelemetry/resources';
+import { detectResourcesSync } from '@opentelemetry/resources/build/src/detect-resources';
 import {
   BatchSpanProcessor,
+  ConsoleSpanExporter,
   SimpleSpanProcessor,
-} from '@opentelemetry/sdk-trace-base';
-import { registerInstrumentations } from '@opentelemetry/instrumentation';
-import { getWebAutoInstrumentations } from '@opentelemetry/auto-instrumentations-web';
-import { browserDetector } from '@opentelemetry/resources';
-import { detectResourcesSync } from '@opentelemetry/resources/build/src/detect-resources';
-import { Span } from '@opentelemetry/api';
+  WebTracerProvider
+} from '@opentelemetry/sdk-trace-web';
+import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
 
-export async function initTelemetry() {
+export async function initTelemetry({
+  endpoint,
+  serviceName,
+  version
+}: OtelOptions) {
   if (typeof window !== 'undefined') {
     return null;
   }
@@ -28,8 +30,8 @@ export async function initTelemetry() {
   const { ZoneContextManager } = await import('@opentelemetry/context-zone');
 
   let resource = new Resource({
-    [SemanticResourceAttributes.SERVICE_NAME]: process.env.OTEL_SERVICE_NAME,
-    [SemanticResourceAttributes.SERVICE_VERSION]: process.env.BUILD,
+    [ATTR_SERVICE_NAME]: serviceName,
+    [ATTR_SERVICE_VERSION]: version,
   });
 
   const contextManager = new ZoneContextManager();
@@ -42,17 +44,17 @@ export async function initTelemetry() {
 
   const provider = new WebTracerProvider({
     resource,
+    spanProcessors: [
+      new SimpleSpanProcessor(
+        new ConsoleSpanExporter()
+      ),
+      new BatchSpanProcessor(
+        new OTLPTraceExporter({
+          url: endpoint
+       }
+      ))
+    ]
   });
-
-  provider.addSpanProcessor(new SimpleSpanProcessor(new ConsoleSpanExporter()));
-
-  provider.addSpanProcessor(
-    new BatchSpanProcessor(
-      new OTLPTraceExporter({
-        url: process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
-      }),
-    ),
-  );
 
   provider.register({
     contextManager,
@@ -75,6 +77,9 @@ export async function initTelemetry() {
             span.setAttribute('app.synthetic_request', 'false');
           },
         },
+        '@opentelemetry/instrumentation-document-load': {},
+        '@opentelemetry/instrumentation-user-interaction': {},
+        '@opentelemetry/instrumentation-xml-http-request': {},
       }),
     ],
   });

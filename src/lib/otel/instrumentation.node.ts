@@ -18,6 +18,8 @@ import { NodeSDK } from '@opentelemetry/sdk-node';
 import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
 import { ClientRequest, IncomingMessage } from 'http';
 
+console.log('')
+
 const sdk = new NodeSDK({
   resource: new Resource({
     [ATTR_SERVICE_NAME]: process.env.OTEL_SERVICE_NAME,
@@ -25,6 +27,7 @@ const sdk = new NodeSDK({
   }),
   traceExporter: new OTLPTraceExporter({
     url: process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
+    
   }),
   instrumentations: [
     getNodeAutoInstrumentations({
@@ -36,7 +39,7 @@ const sdk = new NodeSDK({
         // ignore certain requests
         ignoreIncomingRequestHook: (request: IncomingMessage) => {
 
-          // console.log('ignoreIncomingRequestHook', request.url);
+          console.log('ignoreIncomingRequestHook', request.url);
 
           const ignorePatterns = [
             /^\/_next\/static.*/,

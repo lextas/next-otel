@@ -1,9 +1,21 @@
 'use client';
 
+import { Span, trace } from '@opentelemetry/api';
 import { useState } from 'react';
-import { trace } from '@opentelemetry/api';
 
 async function getRandom(): Promise<{ random: number }> {
+
+  const tracer = trace.getTracer('next-otel');
+  console.log('tracer', tracer);
+
+  tracer.startActiveSpan('test', (span: Span) => {
+
+    span.setAttribute('custom.attribute', 'value')
+
+    span.end();
+
+  });
+
 
   return await trace
     .getTracer('test-button')

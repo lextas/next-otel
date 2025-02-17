@@ -1,8 +1,8 @@
-import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
-import { Otel } from '@/components/otel';
+import type { Metadata } from 'next';
+import { Inter } from 'next/font/google';
 
-import './globals.css'
+import { Otel } from '@/components/otel';
+import './globals.css';
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -16,11 +16,18 @@ export default function RootLayout({
 }: {
   children: React.ReactNode
 }) {
+
+  const {
+    BUILD: version,
+    OTEL_SERVICE_NAME: serviceName,
+    OTEL_EXPORTER_OTLP_ENDPOINT: endpoint
+  } = process.env;
+
   return (
     <html lang="en">
       <body className={inter.className}>
         {children}
-        <Otel />
+        <Otel endpoint={endpoint!} serviceName={serviceName!} version={version!} />
       </body>
     </html>
   )
