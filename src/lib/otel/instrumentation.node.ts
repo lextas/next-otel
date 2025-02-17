@@ -1,28 +1,27 @@
-import { NodeSDK } from '@opentelemetry/sdk-node';
-import { Resource } from '@opentelemetry/resources';
-import { SemanticResourceAttributes } from '@opentelemetry/semantic-conventions';
-import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
-import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-http';
-import { PeriodicExportingMetricReader } from '@opentelemetry/sdk-metrics';
+import { Span } from '@opentelemetry/api';
 import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node';
+import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-http';
+import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
+import {
+  awsEc2Detector,
+  awsEksDetector,
+} from '@opentelemetry/resource-detector-aws';
 import { containerDetector } from '@opentelemetry/resource-detector-container';
 import {
   envDetector,
   hostDetector,
   osDetector,
-  processDetector,
+  processDetector, Resource
 } from '@opentelemetry/resources';
-import {
-  awsEc2Detector,
-  awsEksDetector,
-} from '@opentelemetry/resource-detector-aws';
+import { PeriodicExportingMetricReader } from '@opentelemetry/sdk-metrics';
+import { NodeSDK } from '@opentelemetry/sdk-node';
+import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
 import { ClientRequest, IncomingMessage } from 'http';
-import { Span } from '@opentelemetry/api';
 
 const sdk = new NodeSDK({
   resource: new Resource({
-    [SemanticResourceAttributes.SERVICE_NAME]: process.env.OTEL_SERVICE_NAME,
-    [SemanticResourceAttributes.SERVICE_VERSION]: process.env.BUILD,
+    [ATTR_SERVICE_NAME]: process.env.OTEL_SERVICE_NAME,
+    [ATTR_SERVICE_VERSION]: process.env.BUILD,
   }),
   traceExporter: new OTLPTraceExporter({
     url: process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
