@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 
+import { Nav } from '@/components/nav';
 import { Otel } from '@/components/otel';
 import './globals.css';
 
@@ -26,9 +27,14 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        {children}
-        <Otel endpoint={endpoint!} serviceName={serviceName!} version={version!} />
+        <Nav />
+        <main className="p-5">{children}</main>
+        <Otel
+          endpoint={endpoint!}
+          serviceName={serviceName!}
+          version={version!}
+        />
       </body>
     </html>
-  )
+  );
 }

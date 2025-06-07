@@ -40,9 +40,15 @@ export default function Home() {
   };
 
   return (
-    <main className='p-5'>
-      <h1>Random: {number}</h1>
-      <button className='bg-slate-800 text-white p-2 rounded-xs' onClick={onClick}>Get Random Number</button>     
-    </main>
-  )
+    <div>
+      <h1>Home</h1>
+      <button
+        className="bg-slate-800 text-white p-2 rounded-xs"
+        onClick={onClick}
+      >
+        Get Random Number
+      </button>
+      Random: {number}
+    </div>
+  );
 }
