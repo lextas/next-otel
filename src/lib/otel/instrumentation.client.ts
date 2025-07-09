@@ -1,6 +1,6 @@
 import { OtelOptions } from '@/types/otel';
 import { Span } from '@opentelemetry/api';
-import { getWebAutoInstrumentations } from '@opentelemetry/auto-instrumentations-web';
+import { ZoneContextManager } from '@opentelemetry/context-zone';
 import {
   CompositePropagator,
   W3CBaggagePropagator,
@@ -8,8 +8,12 @@ import {
 } from '@opentelemetry/core';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { registerInstrumentations } from '@opentelemetry/instrumentation';
-import { browserDetector, Resource } from '@opentelemetry/resources';
-import { detectResourcesSync } from '@opentelemetry/resources/build/src/detect-resources';
+import { DocumentLoadInstrumentation } from '@opentelemetry/instrumentation-document-load';
+import { FetchInstrumentation } from '@opentelemetry/instrumentation-fetch';
+import { UserInteractionInstrumentation } from '@opentelemetry/instrumentation-user-interaction';
+import { XMLHttpRequestInstrumentation } from '@opentelemetry/instrumentation-xml-http-request';
+import { browserDetector } from '@opentelemetry/opentelemetry-browser-detector';
+import { detectResources, resourceFromAttributes } from '@opentelemetry/resources';
 import {
   BatchSpanProcessor,
   ConsoleSpanExporter,
@@ -27,16 +31,14 @@ export async function initTelemetry({
     return null;
   }
 
-  const { ZoneContextManager } = await import('@opentelemetry/context-zone');
-
-  let resource = new Resource({
+  let resource = resourceFromAttributes({
     [ATTR_SERVICE_NAME]: serviceName,
     [ATTR_SERVICE_VERSION]: version,
   });
 
   const contextManager = new ZoneContextManager();
 
-  const detectedResources = detectResourcesSync({
+  const detectedResources = detectResources({
     detectors: [browserDetector],
   });
 
@@ -69,18 +71,16 @@ export async function initTelemetry({
   registerInstrumentations({
     tracerProvider: provider,
     instrumentations: [
-      getWebAutoInstrumentations({
-        '@opentelemetry/instrumentation-fetch': {
-          propagateTraceHeaderCorsUrls: /.*/,
-          clearTimingResources: true,
-          applyCustomAttributesOnSpan(span: Span) {
-            span.setAttribute('app.synthetic_request', 'false');
-          },
+      new DocumentLoadInstrumentation(),
+      new XMLHttpRequestInstrumentation(),
+      new UserInteractionInstrumentation(),
+      new FetchInstrumentation({
+        propagateTraceHeaderCorsUrls: /.*/,
+        clearTimingResources: true,
+        applyCustomAttributesOnSpan(span: Span) {
+          span.setAttribute('app.synthetic_request', 'false');
         },
-        '@opentelemetry/instrumentation-document-load': {},
-        '@opentelemetry/instrumentation-user-interaction': {},
-        '@opentelemetry/instrumentation-xml-http-request': {},
-      }),
+      })
     ],
   });
 
