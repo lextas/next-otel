@@ -48,8 +48,11 @@ const sdk = new NodeSDK({
           ];
 
           if(request.url && ignorePatterns.some(m => m.test(request.url!))){
+            console.log('ignoreIncomingRequestHook', request.url, true);
             return true;
           }
+
+          console.log('ignoreIncomingRequestHook', request.url, false);
 
           return false;
         },
