@@ -1,5 +1,6 @@
 import { OtelOptions } from '@/types/otel';
 import { Span } from '@opentelemetry/api';
+import { getWebAutoInstrumentations } from '@opentelemetry/auto-instrumentations-web';
 import { ZoneContextManager } from '@opentelemetry/context-zone';
 import {
   CompositePropagator,
@@ -8,10 +9,6 @@ import {
 } from '@opentelemetry/core';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { registerInstrumentations } from '@opentelemetry/instrumentation';
-import { DocumentLoadInstrumentation } from '@opentelemetry/instrumentation-document-load';
-import { FetchInstrumentation } from '@opentelemetry/instrumentation-fetch';
-import { UserInteractionInstrumentation } from '@opentelemetry/instrumentation-user-interaction';
-import { XMLHttpRequestInstrumentation } from '@opentelemetry/instrumentation-xml-http-request';
 import { browserDetector } from '@opentelemetry/opentelemetry-browser-detector';
 import { detectResources, resourceFromAttributes } from '@opentelemetry/resources';
 import {
@@ -71,16 +68,18 @@ export async function initTelemetry({
   registerInstrumentations({
     tracerProvider: provider,
     instrumentations: [
-      new DocumentLoadInstrumentation(),
-      new XMLHttpRequestInstrumentation(),
-      new UserInteractionInstrumentation(),
-      new FetchInstrumentation({
-        propagateTraceHeaderCorsUrls: /.*/,
-        clearTimingResources: true,
-        applyCustomAttributesOnSpan(span: Span) {
-          span.setAttribute('app.synthetic_request', 'false');
+      getWebAutoInstrumentations({
+        '@opentelemetry/instrumentation-fetch': {
+          propagateTraceHeaderCorsUrls: /.*/,
+          clearTimingResources: true,
+          applyCustomAttributesOnSpan(span: Span) {
+            span.setAttribute('app.synthetic_request', 'false');
+          },
         },
-      })
+        '@opentelemetry/instrumentation-document-load': {},
+        '@opentelemetry/instrumentation-user-interaction': {},
+        '@opentelemetry/instrumentation-xml-http-request': {},
+      }),
     ],
   });
 
