@@ -1,3 +1,5 @@
+'use client';
+
 import { OtelOptions } from '@/types/otel';
 import { Span } from '@opentelemetry/api';
 import { getWebAutoInstrumentations } from '@opentelemetry/auto-instrumentations-web';
@@ -24,7 +26,7 @@ export async function initTelemetry({
   serviceName,
   version
 }: OtelOptions) {
-  if (typeof window !== 'undefined') {
+  if (typeof window === 'undefined') {
     return null;
   }
 
@@ -69,16 +71,16 @@ export async function initTelemetry({
     tracerProvider: provider,
     instrumentations: [
       getWebAutoInstrumentations({
-        '@opentelemetry/instrumentation-fetch': {
+        "@opentelemetry/instrumentation-fetch": {
           propagateTraceHeaderCorsUrls: /.*/,
           clearTimingResources: true,
           applyCustomAttributesOnSpan(span: Span) {
-            span.setAttribute('app.synthetic_request', 'false');
+            span.setAttribute("app.synthetic_request", "false");
           },
         },
-        '@opentelemetry/instrumentation-document-load': {},
-        '@opentelemetry/instrumentation-user-interaction': {},
-        '@opentelemetry/instrumentation-xml-http-request': {},
+        "@opentelemetry/instrumentation-document-load": {},
+        "@opentelemetry/instrumentation-user-interaction": {},
+        "@opentelemetry/instrumentation-xml-http-request": {},
       }),
     ],
   });
