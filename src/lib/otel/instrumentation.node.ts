@@ -66,12 +66,10 @@ const sdk = new NodeSDK({
 
         // re-assign the root span's attributes
         startIncomingSpanHook: (request: IncomingMessage) => {
-          
-          // return {
-          //   name: `${request.method} ${request.url}`,
-          //   'request.path': request.url,
-          // };
-          return {}
+          return {
+            name: `${request.method} ${request.url}`,
+            'request.path': request.url,
+          };
         },
       },
     }),

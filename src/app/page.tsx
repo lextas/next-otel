@@ -6,26 +6,20 @@ import { useState } from 'react';
 async function getRandom(): Promise<{ random: number }> {
 
   const tracer = trace.getTracer('next-otel');
-  console.log('tracer', tracer);
 
-  tracer.startActiveSpan('test', (span: Span) => {
+  return tracer.startActiveSpan("[Button] Get Random Number", async (parentSpan: Span) => {
+    try {
+      parentSpan.setAttribute("custom.attribute", "value");
 
-    span.setAttribute('custom.attribute', 'value')
+      const response = await fetch("/api/random");
+      const data = await response.json();
 
-    span.end();
+      parentSpan.setAttribute("response.data", JSON.stringify(data));
 
-  });
-
-
-  return await trace
-    .getTracer('test-button')
-    .startActiveSpan('getRandomNumber', async (span) => {
-      try {
-        const response = await fetch('/api/random');
-        return response.json();
-      } finally {
-        span.end();
-      }
+      return data;
+    } finally {
+      parentSpan.end();
+    }
   });
 }
 

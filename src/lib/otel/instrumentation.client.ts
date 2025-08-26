@@ -26,9 +26,9 @@ export async function initTelemetry({
   serviceName,
   version
 }: OtelOptions) {
-  if (typeof window === 'undefined') {
-    return null;
-  }
+  // if (typeof window === 'undefined') {
+  //   return null;
+  // }
 
   let resource = resourceFromAttributes({
     [ATTR_SERVICE_NAME]: serviceName,
@@ -72,11 +72,13 @@ export async function initTelemetry({
     instrumentations: [
       getWebAutoInstrumentations({
         "@opentelemetry/instrumentation-fetch": {
-          propagateTraceHeaderCorsUrls: /.*/,
+          // propagateTraceHeaderCorsUrls: /.*/,
+          propagateTraceHeaderCorsUrls: [/^\/api\//], // limit to your backend calls
           clearTimingResources: true,
           applyCustomAttributesOnSpan(span: Span) {
             span.setAttribute("app.synthetic_request", "false");
           },
+          ignoreUrls: [/\/_next\/static\//, /favicon/],
         },
         "@opentelemetry/instrumentation-document-load": {},
         "@opentelemetry/instrumentation-user-interaction": {},
