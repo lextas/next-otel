@@ -67,11 +67,11 @@ service:
     metrics:
       receivers: [otlp, prometheus]
       processors: [batch]
-      exporters: [debug, otlp]
+      exporters: [debug]
 
     logs:
       receivers: [otlp]
       processors: [batch]
-      exporters: [debug, otlp]
+      exporters: [debug]
 
   extensions: [health_check, pprof, zpages]
