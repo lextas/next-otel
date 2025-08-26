@@ -62,16 +62,16 @@ service:
     traces:
       receivers: [otlp, jaeger, zipkin]
       processors: [batch]
-      exporters: [debug, otlp]
+      exporters: [otlp] # [debug, otlp]
 
     metrics:
       receivers: [otlp, prometheus]
       processors: [batch]
-      exporters: [debug]
+      exporters: [otlp] # [debug, otlp]
 
     logs:
       receivers: [otlp]
       processors: [batch]
-      exporters: [debug]
+      exporters: [otlp] # [debug, otlp]
 
   extensions: [health_check, pprof, zpages]
