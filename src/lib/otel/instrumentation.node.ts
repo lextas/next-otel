@@ -33,7 +33,8 @@ const sdk = new NodeSDK({
     getNodeAutoInstrumentations({
       // disable `instrumentation-fs` because it's bloating the traces
       '@opentelemetry/instrumentation-fs': {
-        enabled: false,
+        requireParentSpan: true,
+        // enabled: false,
       },
       '@opentelemetry/instrumentation-http': {
         // ignore certain requests
