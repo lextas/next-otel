@@ -22,8 +22,6 @@ export default async function RootLayout({
 
   // see https://www.w3.org/TR/trace-context/#traceparent-header
   const traceparent = headersList.get("traceparent");
-
-  // the spec (https://www.w3.org/TR/trace-context/#parent-id) prescribes 
   const [traceVersion, traceId, parentId, traceFlags] = traceparent?.split("-") || [];
 
   const {
@@ -46,6 +44,7 @@ export default async function RootLayout({
       */}
 
         {
+          // the spec (https://www.w3.org/TR/trace-context/#parent-id) prescribes
           // `Vendors MUST ignore the traceparent when the parent-id is invalid`
           parentId && parentId !== "0000000000000000" && (
             <meta
