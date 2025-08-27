@@ -1,7 +1,7 @@
 'use client';
 
 import { OtelOptions } from '@/types/otel';
-import { Span } from '@opentelemetry/api';
+import { type Span, propagation } from '@opentelemetry/api';
 import { getWebAutoInstrumentations } from '@opentelemetry/auto-instrumentations-web';
 import { ZoneContextManager } from '@opentelemetry/context-zone';
 import {
@@ -17,6 +17,7 @@ import {
   BatchSpanProcessor,
   ConsoleSpanExporter,
   SimpleSpanProcessor,
+  type SpanProcessor,
   WebTracerProvider
 } from '@opentelemetry/sdk-trace-web';
 import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
@@ -24,11 +25,21 @@ import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic
 export async function initTelemetry({
   endpoint,
   serviceName,
-  version
+  version,
+  debug = false
 }: OtelOptions) {
-  // if (typeof window === 'undefined') {
-  //   return null;
-  // }
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  propagation.setGlobalPropagator(
+    new CompositePropagator({
+      propagators: [
+        new W3CTraceContextPropagator(),
+        new W3CBaggagePropagator(),
+      ],
+    })
+  );
 
   let resource = resourceFromAttributes({
     [ATTR_SERVICE_NAME]: serviceName,
@@ -43,28 +54,25 @@ export async function initTelemetry({
 
   resource = resource.merge(detectedResources);
 
+  const spanProcessors: SpanProcessor[] = [
+    new BatchSpanProcessor(
+      new OTLPTraceExporter({
+        url: endpoint,
+      })
+    ),
+  ];
+
+  if(debug){
+    spanProcessors.push(new SimpleSpanProcessor(new ConsoleSpanExporter()));
+  }
+
   const provider = new WebTracerProvider({
     resource,
-    spanProcessors: [
-      new SimpleSpanProcessor(
-        new ConsoleSpanExporter()
-      ),
-      new BatchSpanProcessor(
-        new OTLPTraceExporter({
-          url: endpoint
-       }
-      ))
-    ]
+    spanProcessors
   });
 
   provider.register({
     contextManager,
-    propagator: new CompositePropagator({
-      propagators: [
-        new W3CBaggagePropagator(),
-        new W3CTraceContextPropagator(),
-      ],
-    }),
   });
 
   registerInstrumentations({
@@ -72,13 +80,24 @@ export async function initTelemetry({
     instrumentations: [
       getWebAutoInstrumentations({
         "@opentelemetry/instrumentation-fetch": {
-          // propagateTraceHeaderCorsUrls: /.*/,
-          propagateTraceHeaderCorsUrls: [/^\/api\//], // limit to your backend calls
+          propagateTraceHeaderCorsUrls: [/.*/],
+          // propagateTraceHeaderCorsUrls: [/^\/api\//], // limit to your backend calls
           clearTimingResources: true,
           applyCustomAttributesOnSpan(span: Span) {
             span.setAttribute("app.synthetic_request", "false");
           },
           ignoreUrls: [/\/_next\/static\//, /favicon/],
+          // requestHook: (span: Span, request: Request | RequestInit) => {
+          //   // span.updateName(`${request.method} ${(request as Request).url}`);
+          //   console.log("span", span, span.);
+          //   console.log("client requestHook", request);
+          //   // if (request instanceof Request) {
+          //   //   console.log("requestHook", `${request.method} ${request.url}`);
+          //   //   span.setAttributes({
+          //   //     name: `${request.method} ${request.url}`,
+          //   //   });
+          //   // }
+          // },
         },
         /*
          * DocumentLoaded events
@@ -94,7 +113,14 @@ export async function initTelemetry({
          * as a meta tag traceparent. The traceparent meta tag should be in the
          * trace context W3C draft format (https://www.w3.org/TR/trace-context)
          */
-        "@opentelemetry/instrumentation-document-load": {},
+        "@opentelemetry/instrumentation-document-load": {
+          applyCustomAttributesOnSpan: {
+            documentLoad: (span: Span) => {
+              // add custom attributes
+              // span.setAttribute('key', 'value')
+            },
+          },
+        },
         /*
          * user interaction events like when a user clicks a button, submits a form, etc
          * see: https://www.npmjs.com/package/@opentelemetry/instrumentation-user-interaction
@@ -103,7 +129,7 @@ export async function initTelemetry({
           // disabled as this sample uses custom traces on events
           shouldPreventSpanCreation: () => true,
           // configure which events you want to track
-          // eventNames: ["submit"],
+          //eventNames: ["submit"],
         },
         /*
          * XMLHttpRequest traces
@@ -114,5 +140,7 @@ export async function initTelemetry({
     ],
   });
 
-  console.log('instrumentation `client` enabled');
+  if(debug){
+    console.log("instrumentation `client` enabled");
+  }
 }
