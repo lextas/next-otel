@@ -9,11 +9,22 @@ services:
     ports:
       - '3200:3200' # tempo
       - '14268:14268' # jaeger ingest
-      - '4317:4317' #otlp GRPC
-      - '4318:4318' #otlp http
+    networks:
+      - otel-network
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    command: ["--config=/etc/otel-collector.yaml"]
+    volumes:
+      - ./.docker/otel-collector.yaml:/etc/otel-collector.yaml
+    ports:
+      - '4317:4317' # otlp GRPC
+      - '4318:4318' # otlp http
+    networks:
+      - otel-network
 
   grafana:
-    image: grafana/grafana:latest # track main as search is under active development
+    image: grafana/grafana:latest
     volumes:
       - ./.docker/grafana.ini:/etc/grafana/grafana.ini
       - ./.docker/grafana-datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml
@@ -23,3 +34,9 @@ services:
       - GF_AUTH_DISABLE_LOGIN_FORM=true
     ports:
       - '3001:3000'
+    networks:
+      - otel-network
+
+networks:
+  otel-network:
+    driver: bridge
