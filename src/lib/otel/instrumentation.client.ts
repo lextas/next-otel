@@ -114,6 +114,7 @@ export async function initTelemetry({
          * trace context W3C draft format (https://www.w3.org/TR/trace-context)
          */
         "@opentelemetry/instrumentation-document-load": {
+          ignoreNetworkEvents: true,
           applyCustomAttributesOnSpan: {
             documentLoad: (span: Span) => {
               // add custom attributes

@@ -18,7 +18,6 @@ export const RandomNumber = ({ initialValue = 0 }: RandomNumberProps) => {
     return tracer.startActiveSpan(
       "[Button] Get Random Number",
       async (parentSpan: Span) => {
-        console.log('client', parentSpan.spanContext().traceId)
         try {
           const randomNumber = await getRandomNumber();
 
@@ -34,14 +33,14 @@ export const RandomNumber = ({ initialValue = 0 }: RandomNumberProps) => {
   };
 
   return (
-    <div>
+    <div className='flex flex-col gap-y-4'>
+      <h1 className='text-4xl font-black text-center'>{number}</h1>
       <button
         className="bg-slate-800 text-white p-2 rounded-md"
         onClick={onClick}
       >
         Get Random Number
       </button>
-      Random: {number}
     </div>
   );
 }

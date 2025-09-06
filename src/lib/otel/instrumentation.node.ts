@@ -31,6 +31,14 @@ opentelemetry.metrics.setGlobalMeterProvider(new MeterProvider());
 
 propagation.setGlobalPropagator(new W3CTraceContextPropagator());
 
+const ignorePatterns = [
+  /^\/_next\/static.*/, // static assets
+  /^\/_next\/image.*/, // next/image optimizer
+  /^\/_next\/data.*/, // SSG data
+  /[?&]_rsc=/, // RSC fetches
+  /^\/favicon\.ico$/, // favicon
+];
+
 const sdk = new NodeSDK({
   resource: resourceFromAttributes({
     [ATTR_SERVICE_NAME]: process.env.OTEL_SERVICE_NAME,
@@ -41,24 +49,23 @@ const sdk = new NodeSDK({
   }),
   instrumentations: [
     getNodeAutoInstrumentations({
-      // disable `instrumentation-fs` because it's bloating the traces
+      // disable `instrumentation-fs` if it's bloating the traces
       "@opentelemetry/instrumentation-fs": {
         requireParentSpan: true,
         // enabled: false,
       },
+      "@opentelemetry/instrumentation-express": {
+        // instrumentation-http and instrumentation-express both result in a trace
+        // we ignore all instrumentation-express so we only get 1 trace per reques
+        enabled: false
+      },
       "@opentelemetry/instrumentation-http": {
         // ignore certain requests
         ignoreIncomingRequestHook: (request: IncomingMessage) => {
-          console.log("ignoreIncomingRequestHook", request.url);
-
-          const ignorePatterns = [/^\/_next\/static.*/, /\/?_rsc=*/, /favicon/];
-
           if (request.url && ignorePatterns.some((m) => m.test(request.url!))) {
-            console.log("ignoreIncomingRequestHook", request.url, true);
+            console.log("[ignoreIncomingRequestHook] ignored", request.url);
             return true;
           }
-
-          console.log("ignoreIncomingRequestHook", request.url, false);
 
           return false;
         },
@@ -72,17 +79,21 @@ const sdk = new NodeSDK({
 
         // re-assign the root span's attributes
         startIncomingSpanHook: (request: IncomingMessage) => {
-          console.log("startIncomingSpanHook");
+          const routeTemplate = (request.headers && request.headers["x-nextjs-route"]) || request.url;
+
+          console.log("startIncomingSpanHook", routeTemplate);
+
           return {
-            name: `${request.method} ${request.url}`,
+            name: `${request.method} ${routeTemplate}`,
+            'http.route': routeTemplate,
             "request.path": request.url,
           };
         },
 
         startOutgoingSpanHook: (request: RequestOptions) => {
           console.log("startOutgoingSpanHook");
-          return {}
-        }
+          return {};
+        },
       },
     }),
   ],
