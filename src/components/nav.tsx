@@ -5,7 +5,7 @@ export const Nav = () => {
     <nav className="p-5 flex gap-x-4 bg-gray-50 border-b border-gray-200">
       <Link href="/">Home</Link>
       <Link href="/about">About</Link>
-      {/* <Link href="/todo">Todo</Link> */} {/* WIP */}
+      <Link href="/todo">Todo</Link>
       <Link href="/contact">Contact</Link>
     </nav>
   );

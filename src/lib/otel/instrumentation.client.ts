@@ -16,11 +16,63 @@ import { detectResources, resourceFromAttributes } from '@opentelemetry/resource
 import {
   BatchSpanProcessor,
   ConsoleSpanExporter,
+  type ReadableSpan,
   SimpleSpanProcessor,
+  type SpanExporter,
   type SpanProcessor,
   WebTracerProvider
 } from '@opentelemetry/sdk-trace-web';
+import { ExportResult } from '@opentelemetry/core';
+
+// Drops root-span fetch POST spans — these are Server Action transport spans that lost
+// Zone.js context and would otherwise appear as orphaned traces in the backend.
+class DropOrphanedServerActionSpans implements SpanExporter {
+  constructor(private inner: SpanExporter) {}
+
+  export(spans: ReadableSpan[], resultCallback: (result: ExportResult) => void): void {
+    const filtered = spans.filter(
+      (span) =>
+        !(
+          span.attributes['component'] === 'fetch' &&
+          span.attributes['http.method'] === 'POST' &&
+          !span.parentSpanId
+        )
+    );
+    this.inner.export(filtered, resultCallback);
+  }
+
+  shutdown(): Promise<void> {
+    return this.inner.shutdown();
+  }
+
+  forceFlush(): Promise<void> {
+    return this.inner.forceFlush?.() ?? Promise.resolve();
+  }
+}
 import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
+
+// Renames client-side fetch spans from "HTTP GET" to "GET /path"
+// so RSC navigation spans are readable in Tempo.
+class FetchSpanRenamer implements SpanProcessor {
+  onStart(): void {}
+
+  onEnd(span: ReadableSpan): void {
+    if (span.attributes['http.url']) {
+      try {
+        const path = new URL(String(span.attributes['http.url'])).pathname;
+        const method = String(span.attributes['http.method'] ?? 'GET');
+        Object.defineProperty(span, 'name', {
+          value: `${method} ${path}`,
+          writable: true,
+          configurable: true,
+        });
+      } catch { /* unparseable URL, leave name unchanged */ }
+    }
+  }
+
+  shutdown(): Promise<void> { return Promise.resolve(); }
+  forceFlush(): Promise<void> { return Promise.resolve(); }
+}
 
 export async function initTelemetry({
   endpoint,
@@ -55,10 +107,11 @@ export async function initTelemetry({
   resource = resource.merge(detectedResources);
 
   const spanProcessors: SpanProcessor[] = [
+    new FetchSpanRenamer(),
     new BatchSpanProcessor(
-      new OTLPTraceExporter({
-        url: endpoint,
-      })
+      new DropOrphanedServerActionSpans(
+        new OTLPTraceExporter({ url: endpoint })
+      )
     ),
   ];
 

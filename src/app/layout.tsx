@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
-import { headers } from "next/headers";
+import { context, propagation } from "@opentelemetry/api";
 
 import { Nav } from '@/components/nav';
 import { Otel } from '@/components/otel';
@@ -19,11 +19,11 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode
 }) {
-  const headersList = await headers();
-
-  // see https://www.w3.org/TR/trace-context/#traceparent-header
-  const traceparent = headersList.get("traceparent");
-  const [traceVersion, traceId, parentId, traceFlags] = traceparent?.split("-") || [];
+  // Inject the server's current span into a carrier so the browser's document-load
+  // instrumentation can read it from the <meta name="traceparent"> tag and attach
+  // the client-side page load as a child of this server request span.
+  const carrier: Record<string, string> = {};
+  propagation.inject(context.active(), carrier);
 
   const {
     BUILD: version,
@@ -34,26 +34,9 @@ export default async function RootLayout({
   return (
     <html lang="en">
       <head>
-        {/*
-        https://www.w3.org/TR/trace-context/
-        Set the `traceparent` in the server's HTML template code. It should be
-        dynamically generated server side to have the server's request trace Id,
-        a parent span Id that was set on the server's request span, and the trace
-        flags to indicate the server's sampling decision
-        (01 = sampled, 00 = notsampled).
-        '{version}-{traceId}-{spanId}-{sampleDecision}
-      */}
-
-        {
-          // the spec (https://www.w3.org/TR/trace-context/#parent-id) prescribes
-          // `Vendors MUST ignore the traceparent when the parent-id is invalid`
-          parentId && parentId !== "0000000000000000" && (
-            <meta
-              name="traceparent"
-              content={`00-ab42124a3c573678d4d8b21ba52df3bf-d21f7bc17caa5aba-01`}
-            ></meta>
-          )
-        }
+        {carrier['traceparent'] && (
+          <meta name="traceparent" content={carrier['traceparent']} />
+        )}
       </head>
       <body className={inter.className}>
         <Nav />

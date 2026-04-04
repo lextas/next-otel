@@ -3,6 +3,7 @@ import { getNodeAutoInstrumentations } from "@opentelemetry/auto-instrumentation
 import { W3CTraceContextPropagator } from "@opentelemetry/core";
 import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-http";
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
+import { BatchSpanProcessor, ReadableSpan, SpanProcessor } from "@opentelemetry/sdk-trace-node";
 import {
   awsEc2Detector,
   awsEksDetector,
@@ -27,6 +28,50 @@ import {
 import { ClientRequest, IncomingMessage } from "http";
 import { RequestOptions } from "https";
 
+// Renames HTTP and Next.js OTEL spans to include the method and path (e.g. "GET /todo/[id]")
+// so traces are readable in Tempo instead of showing "HTTP GET" or "NextServer.getRequestHandler".
+// Using a SpanProcessor (rather than a SpanExporter wrapper) so the rename happens at span-end
+// time on the live Span object, before it is queued for export.
+class SpanRenamer implements SpanProcessor {
+  onStart(): void {}
+
+  onEnd(span: ReadableSpan): void {
+    let newName: string | undefined;
+
+    if (span.attributes["http.url"]) {
+      // Any span carrying a full URL — parse the path, strip query string.
+      // Covers both @opentelemetry/instrumentation-http spans AND Next.js OTEL outer spans.
+      // e.g. http.url="http://localhost:3000/todo?_rsc=abc" → "GET /todo"
+      try {
+        const path = new URL(String(span.attributes["http.url"])).pathname;
+        const method = String(span.attributes["http.method"] ?? "GET");
+        const prefix = span.attributes["next.rsc"] ? "RSC " : "";
+        newName = `${prefix}${method} ${path}`;
+      } catch { /* unparseable URL, leave name unchanged */ }
+    } else if (span.attributes["next.route"]) {
+      // Next.js OTEL span with a route template but no full URL.
+      // e.g. next.route="/todo/[id]", http.method="GET" → "RSC GET /todo/[id]"
+      const method = String(span.attributes["http.method"] ?? "GET");
+      const route = String(span.attributes["next.route"]);
+      const prefix = span.attributes["next.rsc"] ? "RSC " : "";
+      newName = `${prefix}${method} ${route}`;
+    }
+
+    if (newName && newName !== span.name) {
+      // Object.defineProperty creates an own data property that shadows the prototype
+      // getter, so the name is visible regardless of how the OTLP serializer reads it.
+      Object.defineProperty(span, "name", {
+        value: newName,
+        writable: true,
+        configurable: true,
+      });
+    }
+  }
+
+  shutdown(): Promise<void> { return Promise.resolve(); }
+  forceFlush(): Promise<void> { return Promise.resolve(); }
+}
+
 opentelemetry.metrics.setGlobalMeterProvider(new MeterProvider());
 
 propagation.setGlobalPropagator(new W3CTraceContextPropagator());
@@ -44,9 +89,12 @@ export const sdk = new NodeSDK({
     [ATTR_SERVICE_NAME]: process.env.OTEL_SERVICE_NAME,
     [ATTR_SERVICE_VERSION]: process.env.BUILD,
   }),
-  traceExporter: new OTLPTraceExporter({
-    url: process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
-  }),
+  spanProcessors: [
+    new SpanRenamer(),
+    new BatchSpanProcessor(
+      new OTLPTraceExporter({ url: process.env.OTEL_EXPORTER_OTLP_ENDPOINT })
+    ),
+  ],
   instrumentations: [
     getNodeAutoInstrumentations({
       "@opentelemetry/instrumentation-amqplib": { enabled: false },
