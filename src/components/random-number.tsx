@@ -2,7 +2,7 @@
 
 import { getRandomNumber } from '@/actions';
 import { tracer } from '@/lib/otel';
-import { Span } from '@opentelemetry/api';
+import { context, propagation, Span } from '@opentelemetry/api';
 import { useState } from 'react';
 
 type RandomNumberProps = {
@@ -19,7 +19,11 @@ export const RandomNumber = ({ initialValue = 0 }: RandomNumberProps) => {
       "[Button] Get Random Number",
       async (parentSpan: Span) => {
         try {
-          const randomNumber = await getRandomNumber();
+          // Extract the active trace context so the server action can continue the trace
+          const carrier: Record<string, string> = {};
+          propagation.inject(context.active(), carrier);
+
+          const randomNumber = await getRandomNumber(carrier);
 
           parentSpan.setAttribute("response.random", randomNumber);
 
