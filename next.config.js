@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  experimental: {
-    browserDebugInfoInTerminal: true,
+  logging: {
+    browserToTerminal: true,
   },
   webpack: (config, { isServer }) => {
     if (isServer) {

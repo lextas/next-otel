@@ -39,7 +39,7 @@ const ignorePatterns = [
   /^\/favicon\.ico$/, // favicon
 ];
 
-const sdk = new NodeSDK({
+export const sdk = new NodeSDK({
   resource: resourceFromAttributes({
     [ATTR_SERVICE_NAME]: process.env.OTEL_SERVICE_NAME,
     [ATTR_SERVICE_VERSION]: process.env.BUILD,
@@ -49,15 +49,46 @@ const sdk = new NodeSDK({
   }),
   instrumentations: [
     getNodeAutoInstrumentations({
-      // disable `instrumentation-fs` if it's bloating the traces
+      "@opentelemetry/instrumentation-amqplib": { enabled: false },
+      "@opentelemetry/instrumentation-aws-lambda": { enabled: false },
+      "@opentelemetry/instrumentation-aws-sdk": { enabled: false },
+      "@opentelemetry/instrumentation-bunyan": { enabled: false },
+      "@opentelemetry/instrumentation-cassandra-driver": { enabled: false },
+      "@opentelemetry/instrumentation-connect": { enabled: false },
+      "@opentelemetry/instrumentation-cucumber": { enabled: false },
+      "@opentelemetry/instrumentation-dataloader": { enabled: false },
+      "@opentelemetry/instrumentation-dns": { enabled: false },
+      "@opentelemetry/instrumentation-generic-pool": { enabled: false },
+      "@opentelemetry/instrumentation-graphql": { enabled: false },
+      "@opentelemetry/instrumentation-grpc": { enabled: false },
+      "@opentelemetry/instrumentation-hapi": { enabled: false },
+      "@opentelemetry/instrumentation-ioredis": { enabled: false },
+      "@opentelemetry/instrumentation-kafkajs": { enabled: false },
+      "@opentelemetry/instrumentation-knex": { enabled: false },
+      "@opentelemetry/instrumentation-koa": { enabled: false },
+      "@opentelemetry/instrumentation-lru-memoizer": { enabled: false },
+      "@opentelemetry/instrumentation-memcached": { enabled: false },
+      "@opentelemetry/instrumentation-mongodb": { enabled: false },
+      "@opentelemetry/instrumentation-mongoose": { enabled: false },
+      "@opentelemetry/instrumentation-mysql2": { enabled: false },
+      "@opentelemetry/instrumentation-mysql": { enabled: false },
+      "@opentelemetry/instrumentation-nestjs-core": { enabled: false },
+      "@opentelemetry/instrumentation-net": { enabled: false },
+      "@opentelemetry/instrumentation-oracledb": { enabled: false },
+      "@opentelemetry/instrumentation-pg": { enabled: false },
+      "@opentelemetry/instrumentation-pino": { enabled: false },
+      "@opentelemetry/instrumentation-redis": { enabled: false },
+      "@opentelemetry/instrumentation-restify": { enabled: false },
+      "@opentelemetry/instrumentation-router": { enabled: false },
+      "@opentelemetry/instrumentation-runtime-node": { enabled: false },
+      "@opentelemetry/instrumentation-socket.io": { enabled: false },
+      "@opentelemetry/instrumentation-tedious": { enabled: false },
+      "@opentelemetry/instrumentation-undici": { enabled: false },
+      "@opentelemetry/instrumentation-winston": { enabled: false },
+      "@opentelemetry/instrumentation-express": { enabled: false },
       "@opentelemetry/instrumentation-fs": {
         requireParentSpan: true,
         // enabled: false,
-      },
-      "@opentelemetry/instrumentation-express": {
-        // instrumentation-http and instrumentation-express both result in a trace
-        // we ignore all instrumentation-express so we only get 1 trace per reques
-        enabled: false
       },
       "@opentelemetry/instrumentation-http": {
         // ignore certain requests
@@ -72,6 +103,10 @@ const sdk = new NodeSDK({
 
         // rewrite span names from HTTP GET to the path
         requestHook: (span: Span, request: ClientRequest | IncomingMessage) => {
+          console.log(
+            "requestHook",
+            `${request.method} ${(request as IncomingMessage).url}`
+          );
           span.setAttributes({
             name: `${request.method} ${(request as IncomingMessage).url}`,
           });
